@@ -209,6 +209,7 @@ function spawnCar(car, lane, z) {
 
 function createAudio(){
     audio = new AudioSystem()
+    audio.ctx.resume()
     // window.removeEventListener('click', createAudio)
     document.getElementById("welcome").innerHTML = ""
     // play intro sound
