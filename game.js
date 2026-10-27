@@ -209,7 +209,7 @@ function spawnCar(car, lane, z) {
 
 function createAudio(){
     audio = new AudioSystem()
-    window.removeEventListener('click', createAudio)
+    // window.removeEventListener('click', createAudio)
     document.getElementById("welcome").innerHTML = ""
     // play intro sound
     setupScene();
@@ -577,4 +577,5 @@ function showMenu(){
     gameOver = false;
 }
 
-window.addEventListener('click', createAudio)
+document.getElementById("welcome").addEventListener('touchstart', createAudio)
+document.getElementById("welcome").addEventListener('click', createAudio)
