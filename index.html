@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Arcade Driving with Combos</title>
   <style>
     body {
@@ -14,14 +15,17 @@
     canvas {
       display: block;
     }
-
-    .score, .high_score {
-      position: absolute;
+    #title > h1 {
+      font-size: 8vh;
+      text-align: center;
+    }
+    #score, #high_score {
+      position: absolute; 
       top: 10px;
-      left: 10px;
-      color: white;
+      text-align: center;
+      width: 100vw;
       font-family: sans-serif;
-      font-size: 24px;
+      font-size: 1.8vh;
       z-index: 10;
     }
     #pause {
@@ -40,7 +44,7 @@
       color: white;
       background-color: transparent;
       font-family: sans-serif;
-      font-size: 24px;
+      font-size: 2vh;
       z-index: 10;
       display: flex;
       flex-direction: column;
@@ -95,7 +99,7 @@
     }
     #start_game {
       position: absolute;
-      top: 50%;
+      top: 70%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
@@ -103,6 +107,13 @@
       font-size: 24px;
       z-index: 10;
       border: none;
+    }
+    #exit {
+      position: absolute;
+      top: 10%;
+      right: 10%;
+      z-index: 100;
+      color: red;
     }
     .menu {
       position: absolute;
@@ -136,7 +147,7 @@
     <div id="title">
       <div id="high_score">Score: 0 Combo: 0 Speed: 0</div>
       <h1>Swim Session: Endless Highway</h1>
-      <button id="start_game" class="control-btn">Start Game</button>
+      <button id="start_game" class="control-btn">Tap to Start</button>
     </div>
   </div>
   <div id="in_game" class="menu">

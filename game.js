@@ -12,10 +12,12 @@ let debug = true;
 let tokens = Number(localStorage.getItem("tokens")) ?? 25
 let run_distance = 0;
 let trafficDensity = 10;
+let spawnDist = 100
 
 // Speeds
 let baseSpeed = 1.0;
 let speed = baseSpeed;
+let baseFov = 5
 
 // Combo system
 let combo = 0;
@@ -150,6 +152,7 @@ function setupScene() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
     camera.position.set(0, 5, 10);
     camera.lookAt(0, 0, 0);
+    camera.fov = baseFov;
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -216,7 +219,7 @@ function spawnObstacle() {
     let name = "NPC"+Math.random()%9999+1111;
     const car = new Car(name, updateNPCCar, { color: 0xffffff, weight: 40, power:55, durability:15, size:50, friction:0.5});
     const lane = laneX[Math.floor(Math.random() * laneX.length)];
-    spawnCar(car, lane, camera.position.z - 175);
+    spawnCar(car, lane, camera.position.z - spawnDist);
     activeObstacles.push(car);
     lastSpawnDist = run_distance;
 }
@@ -240,6 +243,7 @@ function stepPhysics(delta) {
     
     const accel = (player.state.power/player.state.weight)-(player.state.friction*(speed**2)) ;
     speed += accel*delta;
+    camera.fov = baseFov + (speed - baseSpeed)
 
     for (let i = activeObstacles.length - 1; i >= 0; i--) {
         const car = activeObstacles[i];
