@@ -207,6 +207,14 @@ function spawnCar(car, lane, z) {
     scene.push(car);
 }
 
+function createAudio(){
+    audio = new AudioSystem()
+    window.removeEventListener('click', createAudio)
+    document.getElementById("welcome").innerHTML = ""
+    // play intro sound
+    setupScene();
+}
+
 function setupScene() {
     three = new THREE.Scene();
     three.background = new THREE.Color(0x0a0a44); // deep summer-night blue
@@ -214,17 +222,15 @@ function setupScene() {
     camera = new THREE.PerspectiveCamera(baseFov, window.innerWidth / window.innerHeight, 0.1, 3000);
     camera.position.set(cameraPos.x, cameraPos.y, cameraPos.z);
     camera.lookAt(0, 0, 0);
-
+    
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
-
-    audio = new AudioSystem()
-
+    
     audio.loadSound("woosh", "static/audio/425705__moogy73__woosh_medium_03.wav")
     audio.loadSound("scrape", "static/audio/682371__pnmcarrierailfan__car-crash-elements-sideswipe-01.mp3")
     audio.loadSound("crash", "static/audio/807437__logicogonist__car-crash-long-1.wav")
-
+    
     // Ground
     const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(10, 2000),
@@ -274,7 +280,8 @@ function setupScene() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     });
-    
+    animate()
+    showMenu()
 }
 
 function moveLeft() { let previousLane = currentLane; currentLane = Math.max(0, currentLane - 1); }
@@ -563,15 +570,11 @@ function startGame(){
 
 function showMenu(){
     currentLane = 2;
+    document.getElementById('start_game').addEventListener('click', startGame);
     document.getElementById('in_game').classList.remove('visible');
     document.getElementById('main_menu').classList.add('visible');
     paused = true;
     gameOver = false;
 }
 
-window.onload=()=>{
-    document.getElementById('start_game').addEventListener('click', startGame);
-    setupScene();
-    animate();
-    showMenu();
-}
+window.addEventListener('click', createAudio)
