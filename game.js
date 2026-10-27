@@ -1,5 +1,6 @@
 import { AudioSystem } from "./scripts/audioSystem.js"
 
+let version = "0.1.1";
 let three, camera, renderer;
 let audio
 let scene = [];
@@ -580,5 +581,6 @@ function showMenu(){
     gameOver = false;
 }
 
+document.getElementById("version").innerText = version;
 document.getElementById("continue").addEventListener('touchend', createAudio, {once:true})
 document.getElementById("continue").addEventListener('click', createAudio, {once: true})
