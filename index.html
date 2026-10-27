@@ -1,258 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Arcade Driving with Combos</title>
-<style>
-body { margin: 0; overflow: hidden; }
-canvas { display: block; }
-#score {
-  position: absolute;
-    top: 10px;
+  <meta charset="UTF-8">
+  <title>Arcade Driving with Combos</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      transition: all 1s ease-in-out;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .score, .high_score {
+      position: absolute;
+      top: 10px;
       left: 10px;
-        color: white;
-          font-family: sans-serif;
-            font-size: 24px;
-              z-index: 10;
-              }
+      color: white;
+      font-family: sans-serif;
+      font-size: 24px;
+      z-index: 10;
+    }
+    #pause {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-family: sans-serif;
+      font-size: 24px;
+      z-index: 10;
+    }
+    #tuner {
+      position: absolute;
+      top: 40px;
+      left: 10px;
+      color: white;
+      background-color: transparent;
+      font-family: sans-serif;
+      font-size: 24px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: start;
+      gap: 1rem;
+      & > div {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: start;
+        gap: 5rem;
+      }
+    }
 
-              /* Full-height transparent buttons */
-              .control-btn {
-                position: absolute;
-                  top: 0;
-                    width: 50%; /* half screen each */
-                      height: 100%;
-                        background: rgba(255,255,255,0); /* fully transparent */
-                          z-index: 10;
-                            user-select: none;
-                            }
+    /* Full-height transparent buttons */
+    .control-btn {
+      position: absolute;
+      top: 0;
+      width: 50%;
+      /* half screen each */
+      height: 100%;
+      background: rgba(255, 255, 255, 0);
+      /* fully transparent */
+      z-index: 10;
+      user-select: none;
+    }
 
-                            /* Arrow icons visible near bottom */
-                            .control-btn span {
-                              position: absolute;
-                                bottom: 20%;
-                                  width: 100%;
-                                    text-align: center;
-                                      font-size: 48px;
-                                        color: white;
-                                        }
+    /* Arrow icons visible near bottom */
+    .control-btn span {
+      position: absolute;
+      bottom: 20%;
+      width: 100%;
+      text-align: center;
+      font-size: 48px;
+      color: white;
+      background-color: transparent;
+    }
+    #controls {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #leftBtn {
+      left: 0;
+      bottom: 50%;
+    }
 
-                                        #leftBtn { left: 0; }
-                                        #rightBtn { right: 0; }
-                                        </style>
-                                        <script src="audioSystem.js"></script>
-                                        </head>
-                                        <body>
-                                        <div id="score">Score: 0 Combo: 0</div>
-                                        <div id="leftBtn" class="control-btn"><span>&#8592;</span></div>
-                                        <div id="rightBtn" class="control-btn"><span>&#8594;</span></div>
-                                        <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-                                        <script>
-                                        let scene, camera, renderer;
-                                        let player;
-                                        let laneX = [-2,0,2];
-                                        let currentLane = 1;
-                                        let activeObstacles = [];
-                                        let score = 0;
-                                        let gameOver = false;
+    #rightBtn {
+      right: 0;
+      bottom: 50%;
+    }
+    #start_game {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: sans-serif;
+      font-size: 24px;
+      z-index: 10;
+      border: none;
+    }
+    .menu {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      color: white;
+      opacity: 0 !important;
+      pointer-events: none;
+      &.visible {
+        pointer-events: auto;
+        position: absolute;
+        opacity: 1 !important;
+      }
+      &>div {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        gap: 5rem;
+      }
+    }
 
-                                        // Speeds
-                                        let baseSpeed = 1.0;
-                                        let speed = baseSpeed;
-                                        const nearMissDistance = 0.5;
+  </style>
+  <script src="audioSystem.js"></script>
+</head>
 
-                                        // Combo system
-                                        let combo = 0;
-                                        let lastNearMissTime = 0;
-                                        const comboTimeout = 2.0; // seconds without near-miss resets combo
-                                        const proximityBoxSize = { x: 2, y: 1, z: 5 }; // lane width, height, forward/back
+<body>
+  <div id="main_menu" class="menu">
+    <div id="title">
+      <div id="high_score">Score: 0 Combo: 0 Speed: 0</div>
+      <h1>Swim Session: Endless Highway</h1>
+      <button id="start_game" class="control-btn">Start Game</button>
+    </div>
+  </div>
+  <div id="in_game" class="menu">
+    <div id="score">Score: 0 Combo: 0 Speed: 0</div>
+    <div id="exit"><span>X</span></div>
+    <div id="controls">
+      <div id="leftBtn" class="control-btn"><span>&#8592;</span></div>
+      <div id="rightBtn" class="control-btn"><span>&#8594;</span></div>
+    </div>
+    <div id="tuner">
+        <div>
+          <input type="range" min="0" max="1000" value="55"  id="power">
+          <span id="power_label">Power</span>
+        </div>
+        <div>
+          <input type="range" min="0" max="300" value="10" id="weight">
+          <span id="weight_label">Weight</span>
+        </div>
+        <div>
+          <input type="range" min="0" max="1" value=".5" step=".001" id="friction">
+          <span id="friction_label">Friction</span>
+        </div>
+        <div>
+          <input type="range" min="0" max="5" value="1" id="scrape_box_offset">
+          <span id="scrape_box_offset_label">Scrape Box Offset</span>
+        </div>
+        <div>
+          <input type="range" min="0" max="10" value="1" id="traffic_density">
+          <span id="traffic_density_label">Traffic Density</span>
+        </div>
+    </div>
+  </div>
 
-                                        class Car {
-                                          constructor(options={ color:0xff0000, modelUrl:null, onLoad:null }) {
-                                              if (options.modelUrl) {
-                                                    this.mesh = new THREE.Object3D(); // placeholder while loading
-                                                          const loader = new THREE.GLTFLoader();
-                                                                loader.load(options.modelUrl, (gltf) => {
-                                                                        this.mesh.add(gltf.scene);
-                                                                                if (onLoad) onLoad(this.mesh);
-                                                                                      });
-                                                                                          } else {
-                                                                                                this.mesh = new THREE.Mesh(
-                                                                                                        new THREE.BoxGeometry(1,0.5,2),
-                                                                                                                new THREE.MeshStandardMaterial({ color: options.color })
-                                                                                                                      );
-                                                                                                                          }
-                                                                                                                              this.mesh.position.y = 0.25;
-                                                                                                                                }
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="game.js"></script>
+</body>
 
-                                                                                                                                  setPosition(x,z){
-                                                                                                                                      this.mesh.position.x = x;
-                                                                                                                                          this.mesh.position.z = z;
-                                                                                                                                            }
-
-                                                                                                                                              move(delta,speed){
-                                                                                                                                                  this.mesh.position.z += speed*delta;
-                                                                                                                                                    }
-
-                                                                                                                                                      getBoundingBox(){
-                                                                                                                                                          return new THREE.Box3().setFromObject(this.mesh);
-                                                                                                                                                            }
-                                                                                                                                                            }
-
-                                                                                                                                                            function checkCollision(carA, carB){
-                                                                                                                                                              return carA.getBoundingBox().intersectsBox(carB.getBoundingBox());
-                                                                                                                                                              }
-
-                                                                                                                                                              function getProximityBox(){
-                                                                                                                                                                const box = new THREE.Box3();
-                                                                                                                                                                  box.setFromCenterAndSize(
-                                                                                                                                                                      player.mesh.position,
-                                                                                                                                                                          new THREE.Vector3(proximityBoxSize.x, proximityBoxSize.y, proximityBoxSize.z)
-                                                                                                                                                                            );
-                                                                                                                                                                              return box;
-                                                                                                                                                                              }
-
-                                                                                                                                                                              function checkNearMiss(proxBox, car){
-                                                                                                                                                                                return proxBox.intersectsBox(car.getBoundingBox());
-                                                                                                                                                                                }
-
-                                                                                                                                                                                function calculateNearMiss(player, car, time){
-                                                                                                                                                                                  const distance = car.mesh.position.z - player.mesh.position.z; 
-                                                                                                                                                                                    const maxDistance = proximityBoxSize.z / 2;
-                                                                                                                                                                                      let points = Math.max(1, Math.floor((1 - Math.abs(distance)/maxDistance) * 5));
-                                                                                                                                                                                        points *= (1 + combo * 0.5); // combo multiplier
-                                                                                                                                                                                          score += points;
-                                                                                                                                                                                            combo++;
-                                                                                                                                                                                              lastNearMissTime = time;
-                                                                                                                                                                                                document.getElementById('score').innerText = "Score: " + Math.floor(score) + " Combo: " + combo;
-                                                                                                                                                                                                }
-
-                                                                                                                                                                                                function setupScene(){
-                                                                                                                                                                                                  scene = new THREE.Scene();
-                                                                                                                                                                                                    scene.background = new THREE.Color(0x0a0a44); // deep summer-night blue
-
-                                                                                                                                                                                                      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 3000);
-                                                                                                                                                                                                        camera.position.set(0,5,10);
-                                                                                                                                                                                                          camera.lookAt(0,0,0);
-
-                                                                                                                                                                                                            renderer = new THREE.WebGLRenderer({antialias:true});
-                                                                                                                                                                                                              renderer.setSize(window.innerWidth, window.innerHeight);
-                                                                                                                                                                                                                document.body.appendChild(renderer.domElement);
-
-                                                                                                                                                                                                                  // Ground
-                                                                                                                                                                                                                    const ground = new THREE.Mesh(
-                                                                                                                                                                                                                        new THREE.PlaneGeometry(10, 2000),
-                                                                                                                                                                                                                            new THREE.MeshStandardMaterial({color:0x555555})
-                                                                                                                                                                                                                              );
-                                                                                                                                                                                                                                ground.rotation.x = -Math.PI/2;
-                                                                                                                                                                                                                                  ground.position.z = -950;
-                                                                                                                                                                                                                                    scene.add(ground);
-
-                                                                                                                                                                                                                                      // Lighting
-                                                                                                                                                                                                                                        const light = new THREE.DirectionalLight(0xffffff,1);
-                                                                                                                                                                                                                                          light.position.set(5,10,5);
-                                                                                                                                                                                                                                            scene.add(light);
-                                                                                                                                                                                                                                              scene.add(new THREE.AmbientLight(0x404040));
-
-                                                                                                                                                                                                                                                // Player
-                                                                                                                                                                                                                                                  player = new Car(0x00ff00);
-                                                                                                                                                                                                                                                    player.setPosition(laneX[currentLane],0);
-                                                                                                                                                                                                                                                      scene.add(player.mesh);
-
-                                                                                                                                                                                                                                                        // Touch buttons
-                                                                                                                                                                                                                                                          document.getElementById('leftBtn').addEventListener('touchstart', ()=>moveLeft(),{passive:false});
-                                                                                                                                                                                                                                                            document.getElementById('rightBtn').addEventListener('touchstart', ()=>moveRight(),{passive:false});
-
-                                                                                                                                                                                                                                                              // Keyboard
-                                                                                                                                                                                                                                                                window.addEventListener('keydown', e=>{
-                                                                                                                                                                                                                                                                    if(e.key==='ArrowLeft'||e.key==='a') moveLeft();
-                                                                                                                                                                                                                                                                        if(e.key==='ArrowRight'||e.key==='d') moveRight();
-                                                                                                                                                                                                                                                                          });
-
-                                                                                                                                                                                                                                                                            window.addEventListener('resize', ()=>{
-                                                                                                                                                                                                                                                                                camera.aspect = window.innerWidth/window.innerHeight;
-                                                                                                                                                                                                                                                                                    camera.updateProjectionMatrix();
-                                                                                                                                                                                                                                                                                        renderer.setSize(window.innerWidth, window.innerHeight);
-                                                                                                                                                                                                                                                                                          });
-                                                                                                                                                                                                                                                                                          }
-
-                                                                                                                                                                                                                                                                                          function moveLeft(){ currentLane = Math.max(0,currentLane-1); }
-                                                                                                                                                                                                                                                                                          function moveRight(){ currentLane = Math.min(laneX.length-1,currentLane+1); }
-
-                                                                                                                                                                                                                                                                                          function spawnObstacle(){
-                                                                                                                                                                                                                                                                                            const car = new Car(0xff0000);
-                                                                                                                                                                                                                                                                                              const lane = laneX[Math.floor(Math.random()*laneX.length)];
-                                                                                                                                                                                                                                                                                                car.setPosition(lane, camera.position.z - 500); // spawn far in front
-                                                                                                                                                                                                                                                                                                  scene.add(car.mesh);
-                                                                                                                                                                                                                                                                                                    activeObstacles.push(car);
-                                                                                                                                                                                                                                                                                                    }
-
-                                                                                                                                                                                                                                                                                                    function updateObstacles(delta){
-                                                                                                                                                                                                                                                                                                      const proxBox = getProximityBox();
-                                                                                                                                                                                                                                                                                                        const currentTime = performance.now()/1000;
-
-                                                                                                                                                                                                                                                                                                          // Reset combo if timeout exceeded
-                                                                                                                                                                                                                                                                                                            if(combo > 0 && currentTime - lastNearMissTime > comboTimeout){
-                                                                                                                                                                                                                                                                                                                combo = 0;
-                                                                                                                                                                                                                                                                                                                  }
-
-                                                                                                                                                                                                                                                                                                                    for(let i=activeObstacles.length-1;i>=0;i--){
-                                                                                                                                                                                                                                                                                                                        const car = activeObstacles[i];
-                                                                                                                                                                                                                                                                                                                            car.move(delta, speed*50);
-
-                                                                                                                                                                                                                                                                                                                                if(checkCollision(player, car)){
-                                                                                                                                                                                                                                                                                                                                      resetGame();
-                                                                                                                                                                                                                                                                                                                                          } else if(checkNearMiss(proxBox, car)){
-                                                                                                                                                                                                                                                                                                                                                calculateNearMiss(player, car, currentTime);
-                                                                                                                                                                                                                                                                                                                                                    }
-
-                                                                                                                                                                                                                                                                                                                                                        if(car.mesh.position.z > camera.position.z + 50){
-                                                                                                                                                                                                                                                                                                                                                              scene.remove(car.mesh);
-                                                                                                                                                                                                                                                                                                                                                                    activeObstacles.splice(i,1);
-                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                                                                                                                                          }
-
-                                                                                                                                                                                                                                                                                                                                                                          function resetGame(){
-                                                                                                                                                                                                                                                                                                                                                                            if(gameOver) return;
-                                                                                                                                                                                                                                                                                                                                                                              gameOver = true;
-                                                                                                                                                                                                                                                                                                                                                                                player.mesh.material.color.set(0xff0000);
-
-                                                                                                                                                                                                                                                                                                                                                                                  setTimeout(()=>{
-                                                                                                                                                                                                                                                                                                                                                                                      activeObstacles.forEach(car => scene.remove(car.mesh));
-                                                                                                                                                                                                                                                                                                                                                                                          activeObstacles = [];
-                                                                                                                                                                                                                                                                                                                                                                                              currentLane = 1;
-                                                                                                                                                                                                                                                                                                                                                                                                  player.setPosition(laneX[currentLane],0);
-                                                                                                                                                                                                                                                                                                                                                                                                      player.mesh.material.color.set(0x00ff00);
-                                                                                                                                                                                                                                                                                                                                                                                                          score = 0;
-                                                                                                                                                                                                                                                                                                                                                                                                              combo = 0;
-                                                                                                                                                                                                                                                                                                                                                                                                                  document.getElementById('score').innerText = "Score: 0 Combo: 0";
-                                                                                                                                                                                                                                                                                                                                                                                                                      gameOver = false;
-                                                                                                                                                                                                                                                                                                                                                                                                                        },1000);
-                                                                                                                                                                                                                                                                                                                                                                                                                        }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                        function animate(time){
-                                                                                                                                                                                                                                                                                                                                                                                                                          requestAnimationFrame(animate);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                            if(gameOver) return; // check game over at start
-
-                                                                                                                                                                                                                                                                                                                                                                                                                              const delta = 0.016; // fixed timestep for simplicity
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                // Random spawn: ~2% chance per frame
-                                                                                                                                                                                                                                                                                                                                                                                                                                  if(Math.random() < 0.02){
-                                                                                                                                                                                                                                                                                                                                                                                                                                      spawnObstacle();
-                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                          // Smooth lane movement
-                                                                                                                                                                                                                                                                                                                                                                                                                                            const targetX = laneX[currentLane];
-                                                                                                                                                                                                                                                                                                                                                                                                                                              player.mesh.position.x += (targetX - player.mesh.position.x)*0.2;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                updateObstacles(delta);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  renderer.render(scene,camera);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  setupScene();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  animate();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  </script>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  </body>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  </html>
+</html>
