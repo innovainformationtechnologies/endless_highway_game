@@ -1,4 +1,7 @@
+import { AudioSystem } from "/scripts/audioSystem.js"
+
 let three, camera, renderer;
+let audio
 let scene = [];
 let player;
 let laneX = [-2, 0, 2];
@@ -9,35 +12,56 @@ let scrapes = 0;
 let gameOver = false;
 let paused = true;
 let debug = true;
-let tokens = Number(localStorage.getItem("tokens")) ?? 25
+let tokens = localStorage.getItem("tokens") ? Number(localStorage.getItem("tokens")) : 25
 let run_distance = 0;
-let trafficDensity = 10;
+let maxTrafficSpacing = 20
+let minTrafficSpacing = 4
+let trafficDensity = 5
 let spawnDist = 100
+let spawnChance = 2
 
 // Speeds
 let baseSpeed = 1.0;
 let speed = baseSpeed;
-let baseFov = 5
+let baseFov = 40;
+let cameraPos = {x:0, y:3, z:10}
 
 // Combo system
 let combo = 0;
-let lastNearMissTime = 0;
+let lastNearMiss = null;
 const comboTimeout = 10.0; // seconds without near-miss resets combo
-const proximityBoxSize = { x: 5, y: 1.5, z: 7 }; // lane width, height, forward/back
-const scrapeBoxSize = { x: 3, y: 1.5, z: 3 }; // scrape box size
-let scrapeBoxOffsetZ = 10; // scrape box offset
+const proximityBoxSize = { x: 5, y: 1, z: 7 }; // lane width, height, forward/back
+const scrapeBoxSize = { x: 4, y: 1, z: 2.5 }; // scrape box size
+let scrapeBoxOffsetZ = .5; // scrape box offset
+
+function getCallerLine() {
+  const err = new Error();
+  const stackLines = err.stack.split('\n');
+  // stackLines[0] is "Error"
+  // stackLines[1] is the current function (getCallerLine)
+  // stackLines[2] is the calling function
+  const callerLine = stackLines[2];
+  return callerLine;
+}
+
+function debugLog(message,caller){
+    if (debug)
+        console.log(caller+": "+message+"\n"+getCallerLine())
+}
 
 class Car {
-    constructor(name="Car"+Math.random()%9999+1111, update = () => {}, options = { color: 0xaaaaaa, weight: 40, power:55, durability:15, size:50, friction:0.5}) {
+    constructor(name="Car"+Math.random()%9999+1111, update = () => {}, audio = () => {}, options = { color: 0xaaaaaa, weight: 40, power:55, durability:15, size:50, friction:0.5}) {
+        this.name = name
         this.options = options;
         this.state = Object.create(options);
         this.updateFunc = update;
+        this.audio = audio;
         
         this.mesh = new THREE.Mesh(
-        
-        new THREE.BoxGeometry((options.size*.01)*2, options.size*.01, (options.size*.01)*4),
-        new THREE.MeshStandardMaterial({ color: this.state.color })
+            new THREE.BoxGeometry((options.size*.01)*2, options.size*.01, (options.size*.01)*4),
+            new THREE.MeshStandardMaterial({ color: this.state.color })
         );
+
 
         this.mesh.position.y = 0.25;
         
@@ -47,8 +71,15 @@ class Car {
         this.updateFunc(this, delta);
     }
 
+    updateAudio(){
+        this.audio(this)
+    }
+    
     reset(){
         this.state.durability = this.options.durability;
+        this.state.crashed = false
+        this.state.scraped = false
+        this.state.passed = false
     }
 
     setPosition(x, z) {
@@ -60,9 +91,13 @@ class Car {
         this.state.momentumX = x;
     }
 
+    boostZ(z){
+        speed += z
+    }
+
     move(delta, speed) {
         let new_pos = speed * delta
-        // console.log(this.name + " moving " + new_pos);
+        // debugLog("moving " + new_pos, this.name);
         this.mesh.position.z += new_pos;
     }
 
@@ -87,37 +122,41 @@ function getProximityBox() {
 function getScrapeBox() {
     const box = new THREE.Box3();
     let center = player.mesh.position.clone();
-    center.add(new THREE.Vector3(0, 0, scrapeBoxOffsetZ));
+    debugLog(scrapeBoxOffsetZ, "get scrape box");
+    center.setZ(scrapeBoxOffsetZ)
     let size = new THREE.Vector3((player.state.size*.01)*scrapeBoxSize.x, ((player.state.size*.01))*scrapeBoxSize.y, ((player.state.size*.01))*scrapeBoxSize.z);
     box.setFromCenterAndSize(center, size)
-    // console.log(box);
     return box;
 }
 
 function checkNearMiss(proxBox, car) {
-    return proxBox.intersectsBox(car.getBoundingBox());
+    if (car != lastNearMiss && proxBox.intersectsBox(car.getBoundingBox())){
+        lastNearMiss = car
+        return true;
+    }
 }
 
-function checkScrape(scrapeBox, car) {
-    return scrapeBox.intersectsBox(car.getBoundingBox());
+function checkScrape(scrapeBox, car, intersectsBox) {
+    return scrapeBox.intersectsBox(car.getBoundingBox(), intersectsBox);
 }
 
-function calculateNearMiss(player, car, time) {
+function calculateNearMiss(player, car) {
     const distance = car.mesh.position.z - player.mesh.position.z;
     const maxDistance = proximityBoxSize.z / 2;
     let points = Math.max(1, Math.floor((1 - Math.abs(distance) / maxDistance) * 5)); 
     points *= (1 + combo * 0.5); // combo multiplier
-    console.log(points + " points for " + distance + " distance");
+    debugLog(points + " points for " + distance + " distance", "Near Miss Calc");
     return points;
 }
 
 function updateNPCCar(car) {
     // scene.add(car.mesh);
+    car.state.passed = false
 }
 function updatePlayerCar(car, delta) {
     if (!car.state.momentumX)
         car.state.momentumX = 0;
-    // console.log(car.options)
+    // debugLog(car.options, car.name + "update")
     if (car.state.durability < 0){
         car.mesh.material.color.set(0xff0000);
     }
@@ -132,14 +171,37 @@ function updatePlayerCar(car, delta) {
     const targetX = laneX[currentLane];
     let laneDelta = targetX - player.mesh.position.x;
     
-    let accel = laneDelta * (player.state.power/player.state.weight) - (player.state.friction*player.state.weight) * player.state.momentumX ;
+    let accel = laneDelta * (player.state.power/player.state.weight) - ((player.state.friction)*player.state.weight) * player.state.momentumX ;
     player.state.momentumX += accel * delta;
     
     player.mesh.position.x += player.state.momentumX;
+
+    car.state.crashed = false
+    car.state.scraped = false
 }
 
+function NPCAudio(car){
+    let directionToPlayer
+    if (car.state.passed){
+        debugLog("woosh", "PLAYING SOUND")
+        audio.playOneShot("woosh", 1.0, 0, directionToPlayer)
+    }
+}
+
+function playerAudio(car){
+    if (car.state.crashed){
+        debugLog("crash", "PLAYING SOUND")
+        audio.playOneShot("crash")
+    }
+    if (car.state.scraped){
+        debugLog("scrape", "PLAYING SOUND")
+        audio.playOneShot("scrape")
+    }
+}
+
+
 function spawnCar(car, lane, z) {
-    console.log("spawning car");
+    debugLog("spawning car", "Car Spawn");
     car.setPosition(lane, z);
     three.add(car.mesh);
     scene.push(car);
@@ -149,14 +211,19 @@ function setupScene() {
     three = new THREE.Scene();
     three.background = new THREE.Color(0x0a0a44); // deep summer-night blue
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
-    camera.position.set(0, 5, 10);
+    camera = new THREE.PerspectiveCamera(baseFov, window.innerWidth / window.innerHeight, 0.1, 3000);
+    camera.position.set(cameraPos.x, cameraPos.y, cameraPos.z);
     camera.lookAt(0, 0, 0);
-    camera.fov = baseFov;
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
+
+    audio = new AudioSystem()
+
+    audio.loadSound("woosh", "static/audio/425705__moogy73__woosh_medium_03.wav")
+    audio.loadSound("scrape", "static/audio/682371__pnmcarrierailfan__car-crash-elements-sideswipe-01.mp3")
+    audio.loadSound("crash", "static/audio/807437__logicogonist__car-crash-long-1.wav")
 
     // Ground
     const ground = new THREE.Mesh(
@@ -174,13 +241,13 @@ function setupScene() {
     three.add(new THREE.AmbientLight(0x404040));
 
     // Player
-    player = new Car("Player", updatePlayerCar, { color: 0xaaaaaa, weight: 75, power:1000, durability:15, size:50, friction:0.375});
+    player = new Car("Player", updatePlayerCar, playerAudio, { color: 0xaaaaaa, weight: 120, power:1830, durability:15, size:50, friction:0.2});
     spawnCar(player, 1, 0);
 
     // Touch buttons
     document.getElementById('leftBtn').addEventListener('touchstart', () => moveLeft(), { passive: false });
     document.getElementById('rightBtn').addEventListener('touchstart', () => moveRight(), { passive: false });
-    document.getElementById('exit').addEventListener('touchstart', () => showMenu(), { passive: false });
+    document.getElementById('exit').addEventListener('click', () => showMenu(), { passive: false });
     
     // sliders
     document.getElementById('power').addEventListener('input', e => player.state.power = Number(e.target.value));
@@ -210,14 +277,15 @@ function setupScene() {
     
 }
 
-function moveLeft() { previousLane = currentLane; currentLane = Math.max(0, currentLane - 1); }
-function moveRight() { previousLane = currentLane; currentLane = Math.min(laneX.length - 1, currentLane + 1); }
+function moveLeft() { let previousLane = currentLane; currentLane = Math.max(0, currentLane - 1); }
+function moveRight() { let previousLane = currentLane; currentLane = Math.min(laneX.length - 1, currentLane + 1); }
 
 let lastSpawnDist = 0;
 function spawnObstacle() {
-    if (run_distance - lastSpawnDist < trafficDensity) return
-    let name = "NPC"+Math.random()%9999+1111;
-    const car = new Car(name, updateNPCCar, { color: 0xffffff, weight: 40, power:55, durability:15, size:50, friction:0.5});
+    if (Math.random() > spawnChance) return
+    if (run_distance - lastSpawnDist < 5) return // at least 1 car space
+    let name = "NPC"+Math.floor(Math.random()%9999+1111*1000);
+    const car = new Car(name, updateNPCCar, NPCAudio, { color: 0xffffff, weight: 40, power:55, durability:15, size:50, friction:0.5});
     const lane = laneX[Math.floor(Math.random() * laneX.length)];
     spawnCar(car, lane, camera.position.z - spawnDist);
     activeObstacles.push(car);
@@ -225,8 +293,8 @@ function spawnObstacle() {
 }
 
 function adjustDifficulty(){
-    trafficDensity = Math.random() * 20 + 5;
-    console.log("traffic density: " + trafficDensity);
+    trafficDensity = Math.random() % maxTrafficSpacing + minTrafficSpacing;
+    debugLog("traffic density: " + trafficDensity);
     setTimeout(() => {
         adjustDifficulty();
     }, 1000);
@@ -234,23 +302,21 @@ function adjustDifficulty(){
 
 function stepPhysics(delta) {
     // Random spawn: 2% chance per frame
-    if (Math.random() < 0.02) {
-        spawnObstacle();
-    }
+    spawnObstacle();
+    
 
     const proxBox = getProximityBox();
     const scrapeBox = getScrapeBox();
     
     const accel = (player.state.power/player.state.weight)-(player.state.friction*(speed**2)) ;
     speed += accel*delta;
-    camera.fov = baseFov + (speed - baseSpeed)
 
     for (let i = activeObstacles.length - 1; i >= 0; i--) {
         const car = activeObstacles[i];
         car.move(delta, speed);
         checkCollisions(proxBox, scrapeBox, car);
         if (car.mesh.position.z > camera.position.z + 50) {
-            console.log("you passed a car");
+            debugLog("you passed a car", "Pass Check");
             three.remove(car.mesh);
             activeObstacles.splice(i, 1);
         }
@@ -260,48 +326,51 @@ function stepPhysics(delta) {
 }
 
 function checkCollisions(proxBox, scrapeBox, car){
-    const currentTime = performance.now() / 1000;
+    const currentTime = performance.now();
 
-    // Reset combo if timeout exceeded
-    if (combo > 0 && currentTime - lastNearMissTime > comboTimeout) {
-    combo = 0;
-    }
     if (checkNearMiss(proxBox, car)) {
         let points = calculateNearMiss(player, car, currentTime);
-        combo++;
+        combo ++
+        car.state.passed = true
+        // let intersectsBox = new THREE.Box3()000
         if (checkScrape(scrapeBox, car)) {
-            player.state.durability -= 15;
             if (localStorage.getItem('high_combo') < combo || localStorage.getItem('high_combo') == null){
-                localStorage.setItem('combo', combo);
+                localStorage.setItem('high_combo', combo);
             }
-            combo = 0;
-            scrapes++;
-            console.log("you scraped " + scrapes + " times");
-            speed = baseSpeed;
+            // debugLog(intersectsBox, "Scraping")
             // bump player away from obstacle
-            let direction = Math.sign(car.mesh.position.x - player.mesh.position.x);
-            let lane = currentLane + direction;
-            if (lane < 0) lane = laneX.length - 1;
-            if (lane > laneX.length - 1) lane = 0;
-            currentLane = lane;
-            player.setMomentumX(0);
-            player.setPosition(laneX[lane], player.mesh.position.z);
-            score += points * speed;
+            // let direction = Math.sign(player.mesh.position.x-car.mesh.position.x)
+            // let lane = currentLane + direction;
+            // if (lane < 0) lane = laneX.length - 1;
+            // if (lane > laneX.length - 1) lane = 0;
+            // currentLane = lane;
+            // player.setMomentumX(0);
+            // player.setPosition(laneX[currentLane], player.mesh.position.z);
+            player.boostZ((player.state.power/player.state.weight))
+            player.state.scraped = true
+            player.state.durability -= 15;
+            speed *= .7;
+            camera.setFocalLength(baseFov) + 2
+            camera.position.z = cameraPos.z + 2
+            scrapes++;
+            combo = 0;
+            debugLog("you scraped " + scrapes + " times ", "Scrape Check");
             return
-        } else if (checkRearCollision(player, car)) {
-            console.log("you crashed");
+        }
+        let newPoitns = points * speed * combo;
+        debugLog("+"+ newPoitns, " you're swimming");
+        score += newPoitns
+    }
+    
+    if (checkRearCollision(player, car)) {
+            debugLog("you crashed", "Rear Col Check");
+            player.state.crashed = true
             player.state.durability -= 30;
-            points = 0;
             speed = 0
             if (localStorage.getItem('high_combo') < combo || localStorage.getItem('high_combo') == null){
-                localStorage.setItem('combo', combo);
+                localStorage.setItem('high_combo', combo);
             }
             combo = 0;
-            return
-        } else{
-            console.log("you're swimming");
-            score += points * speed * combo;
-        }
     }
     
 }
@@ -316,6 +385,10 @@ function updateScene(delta){
         resetGame();
         return;
     }
+    let speedZoomAmnt = baseFov - (speed - baseSpeed) * 1.8
+    // debugLog("Speed zoom amnt " + speedZoomAmnt, "Update Scene")
+    camera.setFocalLength(speedZoomAmnt)
+    camera.position.z = cameraPos.z - ((speed - baseSpeed)*.5)
 }
 
 function updateUI(delta){
@@ -324,12 +397,18 @@ function updateUI(delta){
         
     }
     if (paused == false)
-        document.querySelector('#score').innerText = "Score: " + Math.floor(score) + " Combo: " + combo + " Speed: " + Math.floor(speed) + " Distance: " + Math.floor(run_distance) + " Tokens: " + tokens;
+        document.querySelector('#score').innerText = "Score: " + Math.floor(score) + " Combo: " + combo + " Speed: " + Math.floor(speed*10) + " Distance: " + Math.floor(run_distance) + " Tokens: " + tokens;
     document.getElementById('power_label').innerText = "Power: " + player.state.power;
-    document.getElementById('weight_label').innerText = "Weight: " + player.state.weight;
+    document.getElementById('weight_label').innerText = "Weight: " + player.state.weight*10;
     document.getElementById('friction_label').innerText = "Friction: " + player.state.friction;
     document.getElementById('scrape_box_offset_label').innerText = "Scrape Box Offset: " + scrapeBoxOffsetZ;
     document.getElementById('traffic_density_label').innerText = "Traffic Density: " + trafficDensity;
+}
+
+function updateAudio(){
+    scene.forEach(obj=>{
+        if (obj.updateAudio) obj.updateAudio()
+    })
 }
 
 function pause(){
@@ -347,7 +426,7 @@ function resetGame() {
     scene = [];
     if (gameOver){
         if (localStorage.getItem('high_score') < score || localStorage.getItem('high_score') == null){
-            localStorage.setItem('high_score', score);
+            localStorage.setItem('high_score', Math.floor(score));
         }
         score = 0;
         if (localStorage.getItem('high_combo') < combo || localStorage.getItem('high_combo') == null){
@@ -355,18 +434,18 @@ function resetGame() {
         }
         combo = 0;
         if (localStorage.getItem('max_scrapes') < scrapes || localStorage.getItem('high_scrapes') == null){
-            localStorage.setItem('scapes', scrapes);
+            localStorage.setItem('max_scrapes', scrapes);
         }
         scrapes = 0;
         if (localStorage.getItem('high_run_distance') < run_distance || localStorage.getItem('high_run_distance') == null){
-            localStorage.setItem('run_distance', run_distance);
+            localStorage.setItem('high_run_distance', run_distance.toFixed(2));
         }
         run_distance = 0;
         lastSpawnDist = 0;
     };
     gameOver = false;
     player.reset();
-    spawnCar(player, laneX[2], 0);
+    spawnCar(player, laneX[currentLane], 0);
     setTimeout(() => {
         paused = false;
         tokens -= 1
@@ -375,6 +454,8 @@ function resetGame() {
         activeObstacles = [];
         currentLane = 1;
         speed = baseSpeed;
+        player.state.crashed = false
+        player.state.scraped = false
     }, 1000);
 }
 
@@ -387,10 +468,11 @@ function animate(time) {
     
     if (lastTime == 0) lastTime = time;
     const delta = (time - lastTime)*.001; 
-    // console.log(delta);
+    // debugLog(delta);
         
     if (!paused){
         stepPhysics(delta);
+        updateAudio();
         updateScene(delta);
     }
     updateUI(delta);
@@ -443,7 +525,7 @@ function animate(time) {
 
         // 5. Build the mesh and position it at the center of the Box3
         const scrapeVisualMesh = new THREE.Mesh(scrapeGeometry, scrapeMaterial);
-        scrapeVisualMesh.position.copy(center);
+        scrapeVisualMesh.position.copy(scrapeCenter);
 
         // 6. Add it to your rendering scene loop
         three.add(scrapeVisualMesh);
@@ -468,7 +550,12 @@ function startGame(){
         }
         return;
     }
-    console.log("starting game");
+    debugLog("starting game");
+    if (debug)
+        document.getElementById("tuner").classList.add("visible")
+    setTimeout(()=>{
+        document.getElementById("help").classList.add("hide")
+    }, 3000)
     document.getElementById('main_menu').classList.remove('visible');
     document.getElementById('in_game').classList.add('visible');
     resetGame()
