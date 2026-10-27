@@ -101,7 +101,7 @@
       right: 0;
       bottom: 50%;
     }
-    #start_game {
+    #start_game, #continue {
       position: absolute;
       top: 70%;
       left: 50%;
@@ -146,17 +146,21 @@
     #help{
       opacity: 1;
       transition: all 1s ease-in-out !important;
-      &.hide{
+      .hide{
         opacity: 0;
       }
+    }
+    #welcome{
+      width: 100%;
+      height: 100%;
     }
   </style>
 </head>
 
 <body>
   <div id="welcome" class="menu visible">
-    <h1 >Welcome...</h1>
-    <p>Click to Continue</p>
+    <h1>Welcome...</h1>
+    <button id="continue" class="control-btn">Tap to Continue</p>
   </div>
   <div id="main_menu" class="menu">
     <div id="title">

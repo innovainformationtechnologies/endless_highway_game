@@ -577,5 +577,5 @@ function showMenu(){
     gameOver = false;
 }
 
-document.getElementById("welcome").addEventListener('touchstart', createAudio)
-document.getElementById("welcome").addEventListener('click', createAudio)
+document.getElementById("continue").addEventListener('touchstart', createAudio)
+document.getElementById("continue").addEventListener('click', createAudio)
