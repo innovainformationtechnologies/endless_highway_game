@@ -578,5 +578,5 @@ function showMenu(){
     gameOver = false;
 }
 
-document.getElementById("continue").addEventListener('touchend', createAudio)
-document.getElementById("continue").addEventListener('click', createAudio)
+document.getElementById("continue").addEventListener('touchend', createAudio, {once:true})
+document.getElementById("continue").addEventListener('click', createAudio, {once: true})
