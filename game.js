@@ -1,4 +1,4 @@
-import { AudioSystem } from "/scripts/audioSystem.js"
+import { AudioSystem } from "./scripts/audioSystem.js"
 
 let three, camera, renderer;
 let audio
@@ -208,11 +208,13 @@ function spawnCar(car, lane, z) {
 }
 
 function createAudio(){
+    document.getElementById("welcome").innerText = "Loading "
+        
     audio = new AudioSystem()
     audio.ctx.resume()
-    // window.removeEventListener('click', createAudio)
-    document.getElementById("welcome").innerHTML = ""
+    document.getElementById("welcome").innerText = "Loading: audio context state = " + audio.ctx.state
     // play intro sound
+    document.getElementById("welcome").innerText = ""
     setupScene();
 }
 
@@ -228,9 +230,9 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     
-    audio.loadSound("woosh", "static/audio/425705__moogy73__woosh_medium_03.wav")
-    audio.loadSound("scrape", "static/audio/682371__pnmcarrierailfan__car-crash-elements-sideswipe-01.mp3")
-    audio.loadSound("crash", "static/audio/807437__logicogonist__car-crash-long-1.wav")
+    audio.loadSound("woosh", "./static/audio/425705__moogy73__woosh_medium_03.wav")
+    audio.loadSound("scrape", "./static/audio/682371__pnmcarrierailfan__car-crash-elements-sideswipe-01.mp3")
+    audio.loadSound("crash", "./static/audio/807437__logicogonist__car-crash-long-1.wav")
     
     // Ground
     const ground = new THREE.Mesh(
