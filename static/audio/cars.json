@@ -1,0 +1,81 @@
+{
+  "scale": "0-100",
+  "cars": [
+    {
+      "id": "hatchback",
+      "name": "Small Hatchback",
+      "stats": {
+        "weight": 40,
+        "power": 55,
+        "durability": 15,
+        "size": 50
+      },
+      "notes": "Nimble starter. Single hit totals it, barely survives a scrape.",
+      "unlock": {
+        "type": "starter"
+      }
+    },
+    {
+      "id": "crossover",
+      "name": "Midsize Crossover",
+      "stats": {
+        "weight": 60,
+        "power": 40,
+        "durability": 30,
+        "size": 70
+      },
+      "notes": "Boring baseline. Absorbs a few scrapes.",
+      "unlock": {
+        "type": "starter"
+      }
+    },
+    {
+      "id": "jdm_tuner",
+      "name": "JDM Tuner",
+      "stats": {
+        "weight": 45,
+        "power": 80,
+        "durability": 15,
+        "size": 54
+      },
+      "notes": "Best agility. Fragile like the hatchback. Wide body kit makes it slightly wider than the hatchback.",
+      "unlock": {
+        "type": "combo",
+        "min_combo": 15
+      }
+    },
+    {
+      "id": "luxury_truck",
+      "name": "Escalade-Type Truck",
+      "stats": {
+        "weight": 90,
+        "power": 45,
+        "durability": 60,
+        "size": 90
+      },
+      "notes": "Tank. Survives a full rear-end hit, widest hitbox, slowest lane changes.",
+      "unlock": {
+        "type": "combo_ending_scrapes",
+        "min_combo_size": 5,
+        "count": 10
+      }
+    },
+    {
+      "id": "supercar_80s",
+      "name": "80s Supercar",
+      "stats": {
+        "weight": 55,
+        "power": 75,
+        "durability": 12,
+        "size": 85
+      },
+      "notes": "Countach-inspired wedge with DeLorean-style influences. Marginally lighter than the crossover. Lowest durability.",
+      "unlock": {
+        "type": "combo",
+        "min_combo": 30
+      }
+    }
+  ],
+  "size_note": "size is mainly width and drives hitbox width",
+  "unlock_note": "all thresholds are placeholders to tune"
+}

@@ -209,9 +209,9 @@ function spawnCar(car, lane, z) {
 }
 
 function createAudio(){
-    document.getElementById("welcome").innerText = "Loading "
-        
+    document.getElementById("welcome").innerText = "Loading: Initializing audio system"
     audio = new AudioSystem()
+    document.getElementById("welcome").innerText = "Loading: audio context state = " + audio.ctx.state
     audio.ctx.resume()
     document.getElementById("welcome").innerText = "Loading: audio context state = " + audio.ctx.state
     // play intro sound
@@ -562,8 +562,9 @@ function startGame(){
         return;
     }
     debugLog("starting game");
-    if (debug)
+    if (debug){
         document.getElementById("tuner").classList.add("visible")
+    }
     setTimeout(()=>{
         document.getElementById("help").classList.add("hide")
     }, 3000)
